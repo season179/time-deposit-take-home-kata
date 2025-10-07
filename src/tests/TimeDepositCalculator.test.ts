@@ -1,6 +1,6 @@
+import { test, expect } from 'bun:test'
 import { TimeDeposit } from '../TimeDeposit'
 import { TimeDepositCalculator } from '../TimeDepositCalculator'
-
 
 test('Should update balance', () => {
   const plans: TimeDeposit[] = [new TimeDeposit(1, 'basic', 1234567.0, 45)]

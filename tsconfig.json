@@ -1,11 +1,24 @@
 {
-    "include": [
-      "./src/*"
-    ],
-    "compilerOptions": {
-      "lib": [
-        "esnext"
-      ],
-      "esModuleInterop": true
-    }
+  "include": [
+    "./src/**/*"
+  ],
+  "compilerOptions": {
+    // Bun recommended settings
+    "lib": ["ESNext"],
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleDetection": "force",
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "noEmit": true,
+    
+    // Additional type safety
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    
+    // Bun types
+    "types": ["bun-types"]
   }
+}

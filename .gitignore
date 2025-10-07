@@ -6,5 +6,7 @@ obj/
 __pycache__/
 .vs/
 .idea/
-package-lock.json
 .vscode/
+
+# Bun
+bun.lockb
