@@ -1,0 +1,48 @@
+import { sqliteTable, integer, text, real } from 'drizzle-orm/sqlite-core'
+import { relations } from 'drizzle-orm'
+
+/**
+ * Time Deposits Table
+ * 
+ * Stores all time deposit plans according to INSTRUCTIONS.md requirements (lines 23-27)
+ */
+export const timeDeposits = sqliteTable('timeDeposits', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  planType: text('planType').notNull(), // 'basic' | 'student' | 'premium'
+  days: integer('days').notNull(),
+  balance: real('balance').notNull(), // SQLite real type for decimal values
+})
+
+/**
+ * Withdrawals Table
+ * 
+ * Tracks withdrawal history for time deposits (INSTRUCTIONS.md lines 28-32)
+ */
+export const withdrawals = sqliteTable('withdrawals', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  timeDepositId: integer('timeDepositId')
+    .notNull()
+    .references(() => timeDeposits.id, { onDelete: 'cascade' }), // Foreign key with cascade delete
+  amount: real('amount').notNull(),
+  date: integer('date', { mode: 'timestamp' }).notNull(), // SQLite stores dates as integers (Unix timestamp)
+})
+
+/**
+ * Relations for type-safe joins
+ */
+export const timeDepositsRelations = relations(timeDeposits, ({ many }) => ({
+  withdrawals: many(withdrawals),
+}))
+
+export const withdrawalsRelations = relations(withdrawals, ({ one }) => ({
+  timeDeposit: one(timeDeposits, {
+    fields: [withdrawals.timeDepositId],
+    references: [timeDeposits.id],
+  }),
+}))
+
+// Type exports for use throughout the application
+export type TimeDepositRecord = typeof timeDeposits.$inferSelect
+export type NewTimeDepositRecord = typeof timeDeposits.$inferInsert
+export type WithdrawalRecord = typeof withdrawals.$inferSelect
+export type NewWithdrawalRecord = typeof withdrawals.$inferInsert
