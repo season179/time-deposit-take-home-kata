@@ -3,6 +3,7 @@ import {
   WithdrawalDto,
   InterestApplicationDto,
 } from '../ports/TimeDepositRepository'
+import { roundToTwoDecimals } from '../../utils/math'
 
 /**
  * Event Replay Service
@@ -91,7 +92,7 @@ export function replayEventsToComputeBalance(
   }
 
   // Step 4: Round to 2 decimal places to handle floating point precision
-  return Math.round((balance + Number.EPSILON) * 100) / 100
+  return roundToTwoDecimals(balance)
 }
 
 /**

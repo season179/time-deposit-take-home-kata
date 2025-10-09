@@ -2,6 +2,7 @@ import { TimeDepositRepository, CreateInterestApplicationDto } from '../../domai
 import { TimeDepositCalculator } from '../../TimeDepositCalculator'
 import { TimeDeposit } from '../../TimeDeposit'
 import { replayEventsToComputeBalance } from '../../domain/services/EventReplayService'
+import { calculateDaysBetween, findEarliestDate } from '../../utils/date'
 
 /**
  * Use Case: Update All Time Deposit Balances
@@ -53,15 +54,11 @@ export class UpdateAllTimeDepositBalances {
       )
 
       // 2b. Get the first deposit date (earliest) to compute days
-      const firstDepositDate = d.deposits.length > 0
-        ? d.deposits.reduce((earliest, dep) => {
-            return dep.date < earliest ? dep.date : earliest
-          }, d.deposits[0].date)
-        : new Date()
+      const depositDates = d.deposits.map(dep => dep.date)
+      const firstDepositDate = findEarliestDate(depositDates) || now
       
       // Calculate days between today and first deposit date
-      const msPerDay = 1000 * 60 * 60 * 24
-      const computedDays = Math.floor((now.getTime() - firstDepositDate.getTime()) / msPerDay)
+      const computedDays = calculateDaysBetween(firstDepositDate, now)
       
       // 2c. Create TimeDeposit object with the CURRENT balance from event replay
       const timeDeposit = new TimeDeposit(d.id, d.planType, currentBalance, Math.max(0, computedDays))

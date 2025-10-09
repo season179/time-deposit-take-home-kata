@@ -1,10 +1,8 @@
 import { test, expect, describe, beforeEach } from 'bun:test'
-import { Database } from 'bun:sqlite'
-import { drizzle } from 'drizzle-orm/bun-sqlite'
-import { migrate } from 'drizzle-orm/bun-sqlite/migrator'
 import { eq } from 'drizzle-orm'
 import { DrizzleTimeDepositRepository } from '../infrastructure/adapters/DrizzleTimeDepositRepository'
 import * as schema from '../infrastructure/database/schema'
+import { createTestDatabase, type TestDatabase } from './helpers/testDatabase'
 
 /**
  * Repository Integration Tests
@@ -15,18 +13,10 @@ import * as schema from '../infrastructure/database/schema'
 
 describe('DrizzleTimeDepositRepository', () => {
   let repository: DrizzleTimeDepositRepository
-  let db: ReturnType<typeof drizzle<typeof schema>>
+  let db: TestDatabase
 
   beforeEach(async () => {
-    // Create fresh in-memory database for each test
-    const sqlite = new Database(':memory:', { create: true })
-    sqlite.run('PRAGMA foreign_keys = ON;')
-    
-    db = drizzle(sqlite, { schema })
-    
-    // Run migrations
-    await migrate(db, { migrationsFolder: './drizzle/migrations' })
-    
+    db = await createTestDatabase()
     repository = new DrizzleTimeDepositRepository(db)
   })
 

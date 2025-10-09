@@ -12,6 +12,8 @@ import {
 } from '../../domain/ports/TimeDepositRepository'
 import { DrizzleDatabase } from '../database/connection'
 import { timeDeposits, deposits, withdrawals, interestApplications } from '../database/schema'
+import { MS_PER_DAY } from '../../utils/constants'
+import { calculateDaysBetween, findEarliestDate } from '../../utils/date'
 
 /**
  * Drizzle ORM Implementation of TimeDepositRepository
@@ -55,7 +57,6 @@ export class DrizzleTimeDepositRepository implements TimeDepositRepository {
 
   async create(dto: CreateTimeDepositDto): Promise<TimeDeposit> {
     const today = new Date()
-    const msPerDay = 1000 * 60 * 60 * 24
     
     // Determine opening date:
     // 1. If openingDate is provided, use it
@@ -65,8 +66,8 @@ export class DrizzleTimeDepositRepository implements TimeDepositRepository {
       openingDate = dto.openingDate
     } else {
       // Use the legacy days field to compute opening date
-      openingDate = new Date(today)
-      openingDate.setDate(openingDate.getDate() - dto.days)
+      const msToSubtract = dto.days * MS_PER_DAY
+      openingDate = new Date(today.getTime() - msToSubtract)
     }
     
     // Create both time deposit and initial deposit in a transaction
@@ -169,17 +170,13 @@ export class DrizzleTimeDepositRepository implements TimeDepositRepository {
     }
 
     // Find the earliest deposit date
-    const earliestDate = depositRecords.reduce((earliest, d) => {
-      const depositDate = new Date(d.date)
-      return depositDate < earliest ? depositDate : earliest
-    }, new Date(depositRecords[0].date))
-
-    // Calculate days elapsed from earliest deposit to today
-    const today = new Date()
-    const msPerDay = 1000 * 60 * 60 * 24
-    const daysDiff = Math.floor((today.getTime() - earliestDate.getTime()) / msPerDay)
+    const depositDates = depositRecords.map(d => new Date(d.date))
+    const earliestDate = findEarliestDate(depositDates)
     
-    return Math.max(0, daysDiff) // Ensure non-negative
+    if (!earliestDate) return 0
+    
+    // Calculate days elapsed from earliest deposit to today
+    return calculateDaysBetween(earliestDate)
   }
 
   /**

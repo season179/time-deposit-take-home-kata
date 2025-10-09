@@ -1,25 +1,16 @@
 import { test, expect, describe, beforeEach } from 'bun:test'
-import { Database } from 'bun:sqlite'
-import { drizzle } from 'drizzle-orm/bun-sqlite'
-import { migrate } from 'drizzle-orm/bun-sqlite/migrator'
-import * as schema from '../infrastructure/database/schema'
 import { DrizzleTimeDepositRepository } from '../infrastructure/adapters/DrizzleTimeDepositRepository'
 import { UpdateAllTimeDepositBalances } from '../application/usecases/UpdateAllTimeDepositBalances'
-import { TimeDepositCalculator } from '../TimeDepositCalculator'
+import { createTestContext } from './helpers/testDatabase'
 
 describe('UpdateAllTimeDepositBalances - Event Sourcing Integration', () => {
   let repository: DrizzleTimeDepositRepository
   let updateUseCase: UpdateAllTimeDepositBalances
 
   beforeEach(async () => {
-    const sqlite = new Database(':memory:', { create: true })
-    sqlite.run('PRAGMA foreign_keys = ON;')
-    const db = drizzle(sqlite, { schema })
-    await migrate(db, { migrationsFolder: './drizzle/migrations' })
-
-    repository = new DrizzleTimeDepositRepository(db)
-    const calculator = new TimeDepositCalculator()
-    updateUseCase = new UpdateAllTimeDepositBalances(repository, calculator)
+    const context = await createTestContext()
+    repository = context.repository
+    updateUseCase = context.updateUseCase
   })
 
   test('should compute balance from event replay, not stored balance', async () => {

@@ -1,5 +1,6 @@
 import { TimeDeposit } from '../TimeDeposit'
 import { TimeDepositCalculator } from '../TimeDepositCalculator'
+import { roundToTwoDecimals } from '../utils/math'
 
 /**
  * ===============================================================================
@@ -196,7 +197,7 @@ export class ExtensibleInterestService {
       const strategy = this.strategies.get(deposit.planType)
       if (strategy) {
         const interest = strategy.calculate(deposit)
-        const rounded = Math.round((interest + Number.EPSILON) * 100) / 100
+        const rounded = roundToTwoDecimals(interest)
         deposit.balance += rounded
       }
     })
