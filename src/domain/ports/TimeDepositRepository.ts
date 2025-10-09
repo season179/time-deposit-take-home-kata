@@ -41,6 +41,16 @@ export interface TimeDepositRepository {
    * Add a withdrawal record
    */
   addWithdrawal(withdrawal: CreateWithdrawalDto): Promise<void>
+
+  /**
+   * Add an interest application record
+   */
+  addInterestApplication(interest: CreateInterestApplicationDto): Promise<void>
+
+  /**
+   * Add multiple interest applications in bulk (for batch processing)
+   */
+  addInterestApplications(interests: CreateInterestApplicationDto[]): Promise<void>
 }
 
 /**
@@ -65,6 +75,12 @@ export interface CreateWithdrawalDto {
   date: Date
 }
 
+export interface CreateInterestApplicationDto {
+  timeDepositId: number
+  amount: number
+  date: Date
+}
+
 export interface DepositDto {
   id: number
   timeDepositId: number
@@ -79,8 +95,15 @@ export interface WithdrawalDto {
   date: Date
 }
 
+export interface InterestApplicationDto {
+  id: number
+  timeDepositId: number
+  amount: number
+  date: Date
+}
+
 /**
- * Time Deposit enriched with withdrawal history
+ * Time Deposit enriched with event history (deposits, withdrawals, interest applications)
  * This is what the GET API endpoint should return (INSTRUCTIONS.md lines 13-18)
  */
 export interface TimeDepositWithWithdrawals {
@@ -90,4 +113,5 @@ export interface TimeDepositWithWithdrawals {
   days: number
   withdrawals: WithdrawalDto[]
   deposits: DepositDto[] // Included for computing days from first deposit date
+  interestApplications: InterestApplicationDto[] // Interest application events for event sourcing
 }

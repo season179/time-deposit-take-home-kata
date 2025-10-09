@@ -1,6 +1,7 @@
-import { TimeDepositRepository } from '../../domain/ports/TimeDepositRepository'
+import { TimeDepositRepository, CreateInterestApplicationDto } from '../../domain/ports/TimeDepositRepository'
 import { TimeDepositCalculator } from '../../TimeDepositCalculator'
 import { TimeDeposit } from '../../TimeDeposit'
+import { replayEventsToComputeBalance } from '../../domain/services/EventReplayService'
 
 /**
  * Use Case: Update All Time Deposit Balances
@@ -8,14 +9,21 @@ import { TimeDeposit } from '../../TimeDeposit'
  * Application layer use case that updates balances for all time deposits.
  * This implements the POST/PUT endpoint requirement (INSTRUCTIONS.md line 11)
  * 
- * Process:
- * 1. Fetch all time deposits from repository
- * 2. Convert to TimeDeposit domain objects
- * 3. Use TimeDepositCalculator to update balances (CRITICAL: must not break existing logic)
- * 4. Persist updated balances back to database
+ * Process (Event Sourcing Approach):
+ * 1. Fetch all time deposits with their complete event history
+ * 2. For each time deposit:
+ *    a. Replay events (deposits, withdrawals, interest) to compute CURRENT balance
+ *    b. Create TimeDeposit object with computed balance
+ *    c. Use TimeDepositCalculator to determine NEW interest amount
+ *    d. Record interest as an event (not a direct mutation)
+ * 3. Persist interest application events
+ * 4. Update stored balances to match replayed state
  * 
- * This orchestration ensures we leverage the existing TimeDepositCalculator
- * without breaking changes while adding persistence.
+ * Why Event Sourcing:
+ * - Preserves chronological order of all financial events
+ * - Enables accurate balance computation by replaying history
+ * - Prevents data inconsistencies from direct mutations
+ * - Maintains audit trail of all interest applications
  */
 export class UpdateAllTimeDepositBalances {
   constructor(
@@ -24,17 +32,27 @@ export class UpdateAllTimeDepositBalances {
   ) {}
 
   async execute(): Promise<{ updated: number }> {
-    // 1. Fetch all deposits from database
+    // 1. Fetch all deposits from database with their complete event history
     const deposits = await this.repository.findAll()
 
     if (deposits.length === 0) {
       return { updated: 0 }
     }
 
-    // 2. Convert to TimeDeposit domain objects
-    // Compute days from the first deposit date for each time deposit
-    const timeDeposits = deposits.map((d) => {
-      // Get the first deposit date (earliest)
+    // 2. Process each time deposit using event sourcing
+    const interestApplications: CreateInterestApplicationDto[] = []
+    const balanceUpdates: { id: number; balance: number; days: number }[] = []
+    const now = new Date()
+
+    for (const d of deposits) {
+      // 2a. Replay all events to compute the CURRENT balance
+      const currentBalance = replayEventsToComputeBalance(
+        d.deposits,
+        d.withdrawals,
+        d.interestApplications
+      )
+
+      // 2b. Get the first deposit date (earliest) to compute days
       const firstDepositDate = d.deposits.length > 0
         ? d.deposits.reduce((earliest, dep) => {
             return dep.date < earliest ? dep.date : earliest
@@ -42,26 +60,46 @@ export class UpdateAllTimeDepositBalances {
         : new Date()
       
       // Calculate days between today and first deposit date
-      const today = new Date()
       const msPerDay = 1000 * 60 * 60 * 24
-      const computedDays = Math.floor((today.getTime() - firstDepositDate.getTime()) / msPerDay)
+      const computedDays = Math.floor((now.getTime() - firstDepositDate.getTime()) / msPerDay)
       
-      return new TimeDeposit(d.id, d.planType, d.balance, Math.max(0, computedDays))
-    })
+      // 2c. Create TimeDeposit object with the CURRENT balance from event replay
+      const timeDeposit = new TimeDeposit(d.id, d.planType, currentBalance, Math.max(0, computedDays))
 
-    // 3. Update balances using the existing calculator (preserves existing behavior)
-    this.calculator.updateBalance(timeDeposits)
+      // Store the original balance before interest calculation
+      const balanceBeforeInterest = timeDeposit.balance
 
-    // 4. Prepare updates for persistence (including computed days)
-    const updates = timeDeposits.map((td) => ({
-      id: td.id,
-      balance: td.balance,
-      days: td.days,
-    }))
+      // 2d. Use the existing calculator to compute NEW interest (mutates timeDeposit.balance)
+      this.calculator.updateBalance([timeDeposit])
 
-    // 5. Persist updates to database
-    await this.repository.updateBalances(updates)
+      // Calculate the interest amount that was added
+      const interestAmount = timeDeposit.balance - balanceBeforeInterest
 
-    return { updated: updates.length }
+      // 2e. If interest was applied, record it as an event
+      if (interestAmount > 0) {
+        interestApplications.push({
+          timeDepositId: d.id,
+          amount: interestAmount,
+          date: now,
+        })
+      }
+
+      // Prepare balance update (with the new balance including interest)
+      balanceUpdates.push({
+        id: timeDeposit.id,
+        balance: timeDeposit.balance,
+        days: timeDeposit.days,
+      })
+    }
+
+    // 3. Persist all interest application events
+    if (interestApplications.length > 0) {
+      await this.repository.addInterestApplications(interestApplications)
+    }
+
+    // 4. Update stored balances to match the new state
+    await this.repository.updateBalances(balanceUpdates)
+
+    return { updated: balanceUpdates.length }
   }
 }

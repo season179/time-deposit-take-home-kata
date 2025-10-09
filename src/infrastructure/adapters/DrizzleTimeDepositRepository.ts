@@ -5,11 +5,13 @@ import {
   TimeDepositWithWithdrawals,
   CreateTimeDepositDto,
   CreateWithdrawalDto,
+  CreateInterestApplicationDto,
   WithdrawalDto,
   DepositDto,
+  InterestApplicationDto,
 } from '../../domain/ports/TimeDepositRepository'
 import { DrizzleDatabase } from '../database/connection'
-import { timeDeposits, deposits, withdrawals } from '../database/schema'
+import { timeDeposits, deposits, withdrawals, interestApplications } from '../database/schema'
 
 /**
  * Drizzle ORM Implementation of TimeDepositRepository
@@ -26,11 +28,12 @@ export class DrizzleTimeDepositRepository implements TimeDepositRepository {
   constructor(private readonly db: DrizzleDatabase) {}
 
   async findAll(): Promise<TimeDepositWithWithdrawals[]> {
-    // Fetch all time deposits with their deposits and withdrawals
+    // Fetch all time deposits with their deposits, withdrawals, and interest applications
     const timeDepositRecords = await this.db.query.timeDeposits.findMany({
       with: {
         deposits: true,
         withdrawals: true,
+        interestApplications: true,
       },
     })
 
@@ -43,6 +46,7 @@ export class DrizzleTimeDepositRepository implements TimeDepositRepository {
       with: {
         deposits: true,
         withdrawals: true,
+        interestApplications: true,
       },
     })
 
@@ -133,6 +137,28 @@ export class DrizzleTimeDepositRepository implements TimeDepositRepository {
     })
   }
 
+  async addInterestApplication(dto: CreateInterestApplicationDto): Promise<void> {
+    // Insert interest application as an event (event sourcing)
+    await this.db.insert(interestApplications).values({
+      timeDepositId: dto.timeDepositId,
+      amount: dto.amount,
+      date: dto.date,
+    })
+  }
+
+  async addInterestApplications(dtos: CreateInterestApplicationDto[]): Promise<void> {
+    // Bulk insert interest application events
+    if (dtos.length === 0) return
+    
+    await this.db.insert(interestApplications).values(
+      dtos.map((dto) => ({
+        timeDepositId: dto.timeDepositId,
+        amount: dto.amount,
+        date: dto.date,
+      }))
+    )
+  }
+
   /**
    * Helper method to compute days elapsed since the earliest deposit.
    * Days = floor((today - earliestDepositDate) / 1 day)
@@ -185,6 +211,14 @@ export class DrizzleTimeDepositRepository implements TimeDepositRepository {
           timeDepositId: d.timeDepositId,
           amount: d.amount,
           date: new Date(d.date), // Convert Unix timestamp to Date
+        })
+      ),
+      interestApplications: (record.interestApplications || []).map(
+        (i: any): InterestApplicationDto => ({
+          id: i.id,
+          timeDepositId: i.timeDepositId,
+          amount: i.amount,
+          date: new Date(i.date), // Convert Unix timestamp to Date
         })
       ),
     }

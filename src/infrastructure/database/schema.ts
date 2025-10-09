@@ -44,11 +44,28 @@ export const withdrawals = sqliteTable('withdrawals', {
 })
 
 /**
+ * Interest Applications Table
+ * 
+ * Tracks interest application events for event sourcing.
+ * Every time interest is calculated and applied, a record is created here.
+ * This enables proper event replay to compute accurate balances.
+ */
+export const interestApplications = sqliteTable('interestApplications', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  timeDepositId: integer('timeDepositId')
+    .notNull()
+    .references(() => timeDeposits.id, { onDelete: 'cascade' }), // Foreign key with cascade delete
+  amount: real('amount').notNull(), // Interest amount applied
+  date: integer('date', { mode: 'timestamp' }).notNull(), // When interest was applied
+})
+
+/**
  * Relations for type-safe joins
  */
 export const timeDepositsRelations = relations(timeDeposits, ({ many }) => ({
   deposits: many(deposits),
   withdrawals: many(withdrawals),
+  interestApplications: many(interestApplications),
 }))
 
 export const depositsRelations = relations(deposits, ({ one }) => ({
@@ -65,6 +82,13 @@ export const withdrawalsRelations = relations(withdrawals, ({ one }) => ({
   }),
 }))
 
+export const interestApplicationsRelations = relations(interestApplications, ({ one }) => ({
+  timeDeposit: one(timeDeposits, {
+    fields: [interestApplications.timeDepositId],
+    references: [timeDeposits.id],
+  }),
+}))
+
 // Type exports for use throughout the application
 export type TimeDepositRecord = typeof timeDeposits.$inferSelect
 export type NewTimeDepositRecord = typeof timeDeposits.$inferInsert
@@ -72,3 +96,5 @@ export type DepositRecord = typeof deposits.$inferSelect
 export type NewDepositRecord = typeof deposits.$inferInsert
 export type WithdrawalRecord = typeof withdrawals.$inferSelect
 export type NewWithdrawalRecord = typeof withdrawals.$inferInsert
+export type InterestApplicationRecord = typeof interestApplications.$inferSelect
+export type NewInterestApplicationRecord = typeof interestApplications.$inferInsert
