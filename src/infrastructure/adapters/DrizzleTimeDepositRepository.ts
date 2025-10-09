@@ -25,7 +25,7 @@ import { timeDeposits, deposits, withdrawals, interestApplications } from '../da
  * - Easy to swap with a different implementation (e.g., different ORM, in-memory for testing)
  */
 export class DrizzleTimeDepositRepository implements TimeDepositRepository {
-  constructor(private readonly db: DrizzleDatabase) {}
+  constructor(public readonly db: DrizzleDatabase) {}
 
   async findAll(): Promise<TimeDepositWithWithdrawals[]> {
     // Fetch all time deposits with their deposits, withdrawals, and interest applications
