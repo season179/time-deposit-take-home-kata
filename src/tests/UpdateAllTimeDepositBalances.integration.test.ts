@@ -127,16 +127,13 @@ describe('UpdateAllTimeDepositBalances - Event Sourcing Integration', () => {
     expect(deposits[0].interestApplications.length).toBe(1)
     expect(deposits[0].balance).toBeCloseTo(1000.83, 2)
 
-    // Second interest application (NOTE: This will compound on the new balance)
+    // Second interest application on SAME DAY should be idempotent (no new interest)
     await updateUseCase.execute()
     deposits = await repository.findAll()
-    expect(deposits[0].interestApplications.length).toBe(2)
+    expect(deposits[0].interestApplications.length).toBe(1) // Still only 1 due to idempotency
     
-    // With event sourcing, balance is computed from events:
-    // Initial deposit: 1000
-    // First interest: 0.83
-    // Second interest: 0.83 (calculated on 1000.83, rounds to 0.83)
-    expect(deposits[0].balance).toBeCloseTo(1001.66, 1)
+    // Balance remains unchanged because interest already applied today
+    expect(deposits[0].balance).toBeCloseTo(1000.83, 2)
   })
 
   test('should replay all events in correct order for complex scenarios', async () => {
@@ -167,19 +164,19 @@ describe('UpdateAllTimeDepositBalances - Event Sourcing Integration', () => {
     deposits = await repository.findAll()
     expect(deposits[0].balance).toBeCloseTo(8025.00, 2)
 
-    // Apply second interest (should be on reduced balance: 8025 * 0.03 / 12 = 20.06)
+    // Attempt second interest application (BLOCKED by idempotency - same day)
     await updateUseCase.execute()
 
     deposits = await repository.findAll()
     
-    // Verify event counts
+    // Verify event counts - only 1 interest due to idempotency
     expect(deposits[0].deposits.length).toBe(1) // Initial deposit
     expect(deposits[0].withdrawals.length).toBe(1)
-    expect(deposits[0].interestApplications.length).toBe(2)
+    expect(deposits[0].interestApplications.length).toBe(1) // Only first interest applied
     
     // Verify final balance from event replay
-    // 10000 (deposit) + 25 (interest) - 2000 (withdrawal) + 20.06 (interest) = 8045.06
-    expect(deposits[0].balance).toBeCloseTo(8045.06, 2)
+    // 10000 (deposit) + 25 (first interest) - 2000 (withdrawal) = 8025.00
+    expect(deposits[0].balance).toBeCloseTo(8025.00, 2)
   })
 
   test('should handle no interest for accounts within grace period', async () => {

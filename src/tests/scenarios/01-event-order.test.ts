@@ -68,7 +68,7 @@ describe('Event Order Scenarios', () => {
       openingDate: sixtyDaysAgo,
     })
 
-    await updateUseCase.execute() // Interest on 1000
+    await updateUseCase.execute() // Interest on 1000: 1000 * 0.03 / 12 = 2.50
 
     await repository.db.insert(schema.deposits).values({
       timeDepositId: td.id,
@@ -76,10 +76,13 @@ describe('Event Order Scenarios', () => {
       date: new Date(),
     })
 
-    await updateUseCase.execute() // Interest on 1502.50
+    // Second call on same day - IDEMPOTENT (no new interest)
+    await updateUseCase.execute()
 
     const deposits = await repository.findAll()
-    expect(deposits[0].balance).toBeGreaterThan(1505) // 1000 + 2.50 + 500 + 3.76
+    // Balance: 1000 + 2.50 (interest) + 500 (deposit) = 1502.50
+    expect(deposits[0].balance).toBeCloseTo(1502.50, 2)
+    expect(deposits[0].interestApplications.length).toBe(1) // Only one interest due to idempotency
   })
 
   test('Withdrawal → Deposit → Interest (rebalancing)', async () => {
@@ -130,14 +133,14 @@ describe('Event Order Scenarios', () => {
       date: new Date(),
     })
     
-    // Second interest: on replayed balance
+    // Second call on same day - IDEMPOTENT (no new interest)
     await updateUseCase.execute()
 
     const deposits = await repository.findAll()
-    // Event replay: 5000 + 12.50 - 2000 + 1000 + interest on 4012.50
-    // 4012.50 * 0.03 / 12 = 10.03
-    // Total: 4012.50 + 10.03 = 4022.53
-    expect(deposits[0].balance).toBeCloseTo(4022.53, 2)
+    // Event replay: 5000 + 12.50 (interest) - 2000 (withdrawal) + 1000 (deposit)
+    // Total: 4012.50 (no second interest due to idempotency)
+    expect(deposits[0].balance).toBeCloseTo(4012.50, 2)
+    expect(deposits[0].interestApplications.length).toBe(1) // Only one due to idempotency
   })
 
   test('Rapid withdrawals and deposits creating volatile balance', async () => {
@@ -151,21 +154,22 @@ describe('Event Order Scenarios', () => {
       openingDate: sixtyDaysAgo,
     })
 
-    // Simulate volatile activity
+    // Simulate volatile activity on same day
     await repository.addWithdrawal({ timeDepositId: td.id, amount: 300, date: new Date() })
-    await updateUseCase.execute()
+    await updateUseCase.execute() // First interest application
     
     await repository.db.insert(schema.deposits).values({ timeDepositId: td.id, amount: 500, date: new Date() })
-    await updateUseCase.execute()
+    await updateUseCase.execute() // Idempotent - no new interest
     
     await repository.addWithdrawal({ timeDepositId: td.id, amount: 400, date: new Date() })
-    await updateUseCase.execute()
+    await updateUseCase.execute() // Idempotent - no new interest
     
     await repository.db.insert(schema.deposits).values({ timeDepositId: td.id, amount: 200, date: new Date() })
-    await updateUseCase.execute()
+    await updateUseCase.execute() // Idempotent - no new interest
 
     const deposits = await repository.findAll()
-    expect(deposits[0].interestApplications.length).toBe(4)
+    // Only 1 interest application due to idempotency (all on same day)
+    expect(deposits[0].interestApplications.length).toBe(1)
     
     const expectedBase = 1000 - 300 + 500 - 400 + 200 // = 1000
     expect(deposits[0].balance).toBeGreaterThan(expectedBase)

@@ -145,20 +145,26 @@ describe('Data Integrity and Consistency', () => {
 
       const balances = []
       
-      for (let i = 0; i < 10; i++) {
+      // First call applies interest
+      await updateUseCase.execute()
+      let deposits = await repository.findAll()
+      balances.push(deposits[0].balance)
+      
+      // Next 9 calls are idempotent (same day) - no new interest
+      for (let i = 1; i < 10; i++) {
         await updateUseCase.execute()
-        const deposits = await repository.findAll()
+        deposits = await repository.findAll()
         balances.push(deposits[0].balance)
       }
 
-      // Each balance should be higher than previous (compounding)
+      // All balances should be the same after first (idempotent)
       for (let i = 1; i < balances.length; i++) {
-        expect(balances[i]).toBeGreaterThan(balances[i - 1])
+        expect(balances[i]).toBe(balances[0])
       }
 
-      // Event count should match iterations
+      // Only 1 interest application due to idempotency
       const finalDeposits = await repository.findAll()
-      expect(finalDeposits[0].interestApplications.length).toBe(10)
+      expect(finalDeposits[0].interestApplications.length).toBe(1)
     })
 
     test('Balance remains consistent after update with no changes', async () => {
@@ -198,19 +204,19 @@ describe('Data Integrity and Consistency', () => {
         openingDate: sixtyDaysAgo,
       })
 
-      // Cycle 1: Interest
+      // Cycle 1: First interest application
       await updateUseCase.execute()
       let deposits = await repository.findAll()
       expect(deposits[0].interestApplications.length).toBe(1)
 
-      // Cycle 2: Withdrawal then interest
+      // Cycle 2: Withdrawal then update (idempotent - no new interest same day)
       await repository.addWithdrawal({ timeDepositId: td.id, amount: 100, date: new Date() })
       await updateUseCase.execute()
       deposits = await repository.findAll()
-      expect(deposits[0].interestApplications.length).toBe(2)
+      expect(deposits[0].interestApplications.length).toBe(1) // Still 1 due to idempotency
       expect(deposits[0].withdrawals.length).toBe(1)
 
-      // Cycle 3: Deposit then interest
+      // Cycle 3: Deposit then update (idempotent - no new interest same day)
       await repository.db.insert(schema.deposits).values({
         timeDepositId: td.id,
         amount: 200,
@@ -218,11 +224,11 @@ describe('Data Integrity and Consistency', () => {
       })
       await updateUseCase.execute()
       deposits = await repository.findAll()
-      expect(deposits[0].interestApplications.length).toBe(3)
+      expect(deposits[0].interestApplications.length).toBe(1) // Still 1 due to idempotency
       expect(deposits[0].deposits.length).toBe(2) // Initial + new
 
-      // All events accounted for
-      expect(deposits[0].deposits.length + deposits[0].withdrawals.length + deposits[0].interestApplications.length).toBe(6)
+      // All events accounted for: 2 deposits + 1 withdrawal + 1 interest
+      expect(deposits[0].deposits.length + deposits[0].withdrawals.length + deposits[0].interestApplications.length).toBe(4)
     })
   })
 
