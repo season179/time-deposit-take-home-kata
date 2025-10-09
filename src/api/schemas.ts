@@ -1,10 +1,5 @@
 /**
- * OpenAPI/JSON Schema Definitions
- * 
- * These schemas define the API contract and are used for:
- * - OpenAPI documentation (Swagger UI)
- * - Request/response validation
- * - TypeScript type inference
+ * OpenAPI/JSON Schema Definitions for Swagger UI and validation
  */
 
 export const WithdrawalSchema = {

@@ -2,15 +2,8 @@ import { db } from './connection'
 import { timeDeposits, deposits, withdrawals } from './schema'
 
 /**
- * Database Seeder
- * 
- * Populates the database with sample data for testing and demonstration.
- * 
- * Strategy:
- * - Each time deposit gets an initial deposit record
- * - Deposit date is calculated as: today - days (to maintain consistency with existing days values)
- * - Initial deposit amount equals the initial balance
- * - Withdrawals remain the same (they reduce the balance)
+ * Database Seeder - populates with sample data
+ * Run: bun src/infrastructure/database/seed.ts
  */
 
 async function seed() {
@@ -19,7 +12,6 @@ async function seed() {
   try {
     const today = new Date()
     
-    // Seed data: planType, days (for date calculation), initial balance
     const seedData = [
       { planType: 'basic', days: 45, balance: 1000 },
       { planType: 'basic', days: 30, balance: 2000 },
@@ -29,7 +21,6 @@ async function seed() {
       { planType: 'premium', days: 45, balance: 7500 },
     ]
 
-    // Create sample time deposits
     const createdDeposits = await db
       .insert(timeDeposits)
       .values(seedData)
@@ -37,8 +28,6 @@ async function seed() {
 
     console.log(`✅ Created ${createdDeposits.length} time deposits`)
     
-    // Create initial deposit records for each time deposit
-    // Deposit date = today - days (to reproduce the original days offset)
     const initialDeposits = createdDeposits.map((td, index) => {
       const depositDate = new Date(today)
       depositDate.setDate(depositDate.getDate() - seedData[index].days)
@@ -53,7 +42,6 @@ async function seed() {
     await db.insert(deposits).values(initialDeposits)
     console.log(`✅ Created ${initialDeposits.length} initial deposit records`)
 
-    // Add some sample withdrawals
     await db.insert(withdrawals).values([
       {
         timeDepositId: createdDeposits[0].id,

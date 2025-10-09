@@ -6,9 +6,9 @@ import { TimeDepositSchema, UpdateBalancesResponseSchema } from '../schemas'
 /**
  * Time Deposits API Routes
  * 
- * Implements exactly 2 endpoints as required by INSTRUCTIONS.md line 50:
- * 1. GET /time-deposits - Retrieve all time deposits
- * 2. POST /time-deposits/update-balances - Update balances of all time deposits
+ * Implements the 2 required endpoints (INSTRUCTIONS.md line 50):
+ * - GET /time-deposits
+ * - POST /time-deposits/update-balances
  */
 export async function timeDepositRoutes(
   fastify: FastifyInstance,
@@ -17,12 +17,6 @@ export async function timeDepositRoutes(
     updateAllTimeDepositBalances: UpdateAllTimeDepositBalances
   }
 ) {
-  /**
-   * GET /time-deposits
-   * 
-   * Returns all time deposits with their withdrawal history.
-   * Schema matches INSTRUCTIONS.md lines 13-18
-   */
   fastify.get(
     '/time-deposits',
     {
@@ -44,12 +38,6 @@ export async function timeDepositRoutes(
     }
   )
 
-  /**
-   * POST /time-deposits/update-balances
-   * 
-   * Updates the balances of all time deposits based on their plan type and days.
-   * This endpoint applies the interest calculation logic to all deposits in the database.
-   */
   fastify.post(
     '/time-deposits/update-balances',
     {

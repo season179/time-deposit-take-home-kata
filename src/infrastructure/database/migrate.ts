@@ -3,10 +3,7 @@ import { drizzle } from 'drizzle-orm/bun-sqlite'
 import { migrate } from 'drizzle-orm/bun-sqlite/migrator'
 
 /**
- * Migration runner
- * 
- * Run this script to apply pending migrations:
- * bun src/infrastructure/database/migrate.ts
+ * Run: bun src/infrastructure/database/migrate.ts
  */
 
 const DATABASE_URL = process.env.DATABASE_URL || './data/timedeposits.db'

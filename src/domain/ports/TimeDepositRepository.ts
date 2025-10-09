@@ -1,66 +1,34 @@
 import { TimeDeposit } from '../../TimeDeposit'
 
 /**
- * Repository Port (Interface)
+ * Repository Port
  * 
- * Defines the contract for time deposit persistence operations.
- * This is part of the hexagonal architecture - the domain defines what it needs,
- * and infrastructure adapters implement these requirements.
- * 
- * Following the Dependency Inversion Principle:
- * - High-level domain logic depends on this abstraction
- * - Low-level infrastructure implements this abstraction
+ * Defines persistence contract for time deposits following hexagonal architecture.
+ * Domain defines the interface; infrastructure provides the implementation.
  */
 export interface TimeDepositRepository {
-  /**
-   * Retrieve all time deposits with their withdrawal history
-   */
   findAll(): Promise<TimeDepositWithWithdrawals[]>
 
-  /**
-   * Find a single time deposit by ID
-   */
   findById(id: number): Promise<TimeDepositWithWithdrawals | null>
 
-  /**
-   * Create a new time deposit
-   */
   create(deposit: CreateTimeDepositDto): Promise<TimeDeposit>
 
-  /**
-   * Update the balance of a time deposit
-   */
   updateBalance(id: number, newBalance: number): Promise<void>
 
-  /**
-   * Update balances for multiple time deposits (bulk operation)
-   */
   updateBalances(updates: { id: number; balance: number; days: number }[]): Promise<void>
 
-  /**
-   * Add a withdrawal record
-   */
   addWithdrawal(withdrawal: CreateWithdrawalDto): Promise<void>
 
-  /**
-   * Add an interest application record
-   */
   addInterestApplication(interest: CreateInterestApplicationDto): Promise<void>
 
-  /**
-   * Add multiple interest applications in bulk (for batch processing)
-   */
   addInterestApplications(interests: CreateInterestApplicationDto[]): Promise<void>
 }
 
-/**
- * DTOs (Data Transfer Objects)
- */
 export interface CreateTimeDepositDto {
   planType: string
-  days: number // Legacy field - will be computed from openingDate if not provided
+  days: number
   balance: number
-  openingDate?: Date // Optional opening date - defaults to today if not provided
+  openingDate?: Date
 }
 
 export interface CreateDepositDto {
@@ -102,16 +70,12 @@ export interface InterestApplicationDto {
   date: Date
 }
 
-/**
- * Time Deposit enriched with event history (deposits, withdrawals, interest applications)
- * This is what the GET API endpoint should return (INSTRUCTIONS.md lines 13-18)
- */
 export interface TimeDepositWithWithdrawals {
   id: number
   planType: string
   balance: number
   days: number
   withdrawals: WithdrawalDto[]
-  deposits: DepositDto[] // Included for computing days from first deposit date
-  interestApplications: InterestApplicationDto[] // Interest application events for event sourcing
+  deposits: DepositDto[]
+  interestApplications: InterestApplicationDto[]
 }

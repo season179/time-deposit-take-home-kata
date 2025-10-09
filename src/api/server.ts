@@ -20,12 +20,10 @@ export async function createServer() {
     },
   })
 
-  // Register CORS
   await fastify.register(cors, {
-    origin: true, // Allow all origins in development
+    origin: true,
   })
 
-  // Register Swagger/OpenAPI
   await fastify.register(swagger, {
     openapi: {
       openapi: '3.0.0',
@@ -43,7 +41,6 @@ export async function createServer() {
     },
   })
 
-  // Register Swagger UI
   await fastify.register(swaggerUI, {
     routePrefix: '/docs',
     uiConfig: {
@@ -53,11 +50,8 @@ export async function createServer() {
     staticCSP: true,
   })
 
-  // Health check endpoint (not counted as one of the two required endpoints)
   fastify.get('/health', {
-    schema: {
-      hide: true, // Hide from Swagger docs
-    },
+    schema: { hide: true },
     handler: async () => ({ status: 'ok' }),
   })
 

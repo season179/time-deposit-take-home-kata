@@ -2,66 +2,51 @@ import { sqliteTable, integer, text, real } from 'drizzle-orm/sqlite-core'
 import { relations } from 'drizzle-orm'
 
 /**
- * Time Deposits Table
- * 
- * Stores all time deposit plans according to INSTRUCTIONS.md requirements (lines 23-27)
+ * Time Deposits Table (INSTRUCTIONS.md lines 23-27)
  */
 export const timeDeposits = sqliteTable('timeDeposits', {
   id: integer('id').primaryKey({ autoIncrement: true }),
-  planType: text('planType').notNull(), // 'basic' | 'student' | 'premium'
+  planType: text('planType').notNull(),
   days: integer('days').notNull(),
-  balance: real('balance').notNull(), // SQLite real type for decimal values
+  balance: real('balance').notNull(),
 })
 
 /**
- * Deposits Table
- * 
- * Tracks deposit (money-in) history for time deposits.
- * Every time deposit must have at least one deposit record (the initial deposit).
- * The earliest deposit date is used to compute the account age (days).
+ * Deposits Table - Tracks deposit history; earliest date determines account age
  */
 export const deposits = sqliteTable('deposits', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   timeDepositId: integer('timeDepositId')
     .notNull()
-    .references(() => timeDeposits.id, { onDelete: 'cascade' }), // Foreign key with cascade delete
+    .references(() => timeDeposits.id, { onDelete: 'cascade' }),
   amount: real('amount').notNull(),
-  date: integer('date', { mode: 'timestamp' }).notNull(), // SQLite stores dates as integers (Unix timestamp)
+  date: integer('date', { mode: 'timestamp' }).notNull(),
 })
 
 /**
- * Withdrawals Table
- * 
- * Tracks withdrawal history for time deposits (INSTRUCTIONS.md lines 28-32)
+ * Withdrawals Table (INSTRUCTIONS.md lines 28-32)
  */
 export const withdrawals = sqliteTable('withdrawals', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   timeDepositId: integer('timeDepositId')
     .notNull()
-    .references(() => timeDeposits.id, { onDelete: 'cascade' }), // Foreign key with cascade delete
+    .references(() => timeDeposits.id, { onDelete: 'cascade' }),
   amount: real('amount').notNull(),
-  date: integer('date', { mode: 'timestamp' }).notNull(), // SQLite stores dates as integers (Unix timestamp)
+  date: integer('date', { mode: 'timestamp' }).notNull(),
 })
 
 /**
- * Interest Applications Table
- * 
- * Tracks interest application events for event sourcing.
- * Every time interest is calculated and applied, a record is created here.
- * This enables proper event replay to compute accurate balances.
+ * Interest Applications Table - Event sourcing for interest calculations
  */
 export const interestApplications = sqliteTable('interestApplications', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   timeDepositId: integer('timeDepositId')
     .notNull()
-    .references(() => timeDeposits.id, { onDelete: 'cascade' }), // Foreign key with cascade delete
-  amount: real('amount').notNull(), // Interest amount applied
-  date: integer('date', { mode: 'timestamp' }).notNull(), // When interest was applied
+    .references(() => timeDeposits.id, { onDelete: 'cascade' }),
+  amount: real('amount').notNull(),
+  date: integer('date', { mode: 'timestamp' }).notNull(),
 })
 
-/**
- * Relations for type-safe joins
- */
 export const timeDepositsRelations = relations(timeDeposits, ({ many }) => ({
   deposits: many(deposits),
   withdrawals: many(withdrawals),
@@ -89,7 +74,6 @@ export const interestApplicationsRelations = relations(interestApplications, ({ 
   }),
 }))
 
-// Type exports for use throughout the application
 export type TimeDepositRecord = typeof timeDeposits.$inferSelect
 export type NewTimeDepositRecord = typeof timeDeposits.$inferInsert
 export type DepositRecord = typeof deposits.$inferSelect
