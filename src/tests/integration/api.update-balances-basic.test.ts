@@ -28,7 +28,7 @@ describe('POST /time-deposits/update-balances - Basic Tests', () => {
     const sqlite = new Database(':memory:', { create: true })
     sqlite.run('PRAGMA foreign_keys = ON;')
     db = drizzle(sqlite, { schema })
-    await migrate(db, { migrationsFolder: './drizzle/migrations' })
+    migrate(db, { migrationsFolder: './drizzle/migrations' })
     
     // Setup repository and use cases
     repository = new DrizzleTimeDepositRepository(db)

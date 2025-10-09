@@ -175,7 +175,7 @@ describe('GET /time-deposits - Data Retrieval', () => {
   describe('Scenario 1.5: Days Calculation Accuracy', () => {
     test('should calculate days correctly from deposit date', async () => {
       // Create deposit with known days value
-      const deposit = await repository.create({ 
+      await repository.create({ 
         planType: 'basic', 
         days: 100, 
         balance: 1000 

@@ -27,7 +27,7 @@ describe('Plan-Specific Interest Calculations', () => {
     const sqlite = new Database(':memory:', { create: true })
     sqlite.run('PRAGMA foreign_keys = ON;')
     db = drizzle(sqlite, { schema })
-    await migrate(db, { migrationsFolder: './drizzle/migrations' })
+    migrate(db, { migrationsFolder: './drizzle/migrations' })
     
     repository = new DrizzleTimeDepositRepository(db)
     const calculator = new TimeDepositCalculator()

@@ -56,6 +56,10 @@ export async function timeDepositRoutes(
       schema: {
         description: 'Update balances for all time deposits based on interest rates',
         tags: ['Time Deposits'],
+        body: {
+          type: 'object',
+          additionalProperties: false,
+        },
         response: {
           200: {
             description: 'Balance update result',
