@@ -89,4 +89,5 @@ export interface TimeDepositWithWithdrawals {
   balance: number
   days: number
   withdrawals: WithdrawalDto[]
+  deposits: DepositDto[] // Included for computing days from first deposit date
 }

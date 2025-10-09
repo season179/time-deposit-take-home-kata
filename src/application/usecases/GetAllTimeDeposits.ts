@@ -14,7 +14,11 @@ import { TimeDepositRepository, TimeDepositWithWithdrawals } from '../../domain/
 export class GetAllTimeDeposits {
   constructor(private readonly repository: TimeDepositRepository) {}
 
-  async execute(): Promise<TimeDepositWithWithdrawals[]> {
-    return await this.repository.findAll()
+  async execute(): Promise<Omit<TimeDepositWithWithdrawals, 'deposits'>[]> {
+    const deposits = await this.repository.findAll()
+    
+    // Filter out deposits field as it's only needed internally for computation
+    // API response per INSTRUCTIONS.md should only include: id, planType, balance, days, withdrawals
+    return deposits.map(({ deposits: _, ...rest }) => rest)
   }
 }

@@ -32,9 +32,22 @@ export class UpdateAllTimeDepositBalances {
     }
 
     // 2. Convert to TimeDeposit domain objects
-    const timeDeposits = deposits.map(
-      (d) => new TimeDeposit(d.id, d.planType, d.balance, d.days)
-    )
+    // Compute days from the first deposit date for each time deposit
+    const timeDeposits = deposits.map((d) => {
+      // Get the first deposit date (earliest)
+      const firstDepositDate = d.deposits.length > 0
+        ? d.deposits.reduce((earliest, dep) => {
+            return dep.date < earliest ? dep.date : earliest
+          }, d.deposits[0].date)
+        : new Date()
+      
+      // Calculate days between today and first deposit date
+      const today = new Date()
+      const msPerDay = 1000 * 60 * 60 * 24
+      const computedDays = Math.floor((today.getTime() - firstDepositDate.getTime()) / msPerDay)
+      
+      return new TimeDeposit(d.id, d.planType, d.balance, Math.max(0, computedDays))
+    })
 
     // 3. Update balances using the existing calculator (preserves existing behavior)
     this.calculator.updateBalance(timeDeposits)

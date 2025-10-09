@@ -6,6 +6,7 @@ import {
   CreateTimeDepositDto,
   CreateWithdrawalDto,
   WithdrawalDto,
+  DepositDto,
 } from '../../domain/ports/TimeDepositRepository'
 import { DrizzleDatabase } from '../database/connection'
 import { timeDeposits, deposits, withdrawals } from '../database/schema'
@@ -176,6 +177,14 @@ export class DrizzleTimeDepositRepository implements TimeDepositRepository {
           timeDepositId: w.timeDepositId,
           amount: w.amount,
           date: new Date(w.date), // Convert Unix timestamp to Date
+        })
+      ),
+      deposits: (record.deposits || []).map(
+        (d: any): DepositDto => ({
+          id: d.id,
+          timeDepositId: d.timeDepositId,
+          amount: d.amount,
+          date: new Date(d.date), // Convert Unix timestamp to Date
         })
       ),
     }
