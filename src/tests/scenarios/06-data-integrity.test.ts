@@ -365,8 +365,8 @@ describe('Data Integrity and Consistency', () => {
       await updateUseCase.execute()
 
       const deposits = await repository.findAll()
-      // 5000 - 1700 + interest on 3300: 3300 * 0.01 / 12 = 2.75
-      expect(deposits[0].balance).toBeCloseTo(3302.75, 2)
+      // 5000 - 1700 + interest on 3300: 3300 × (0.01 / 365) × 60 = 5.42
+      expect(deposits[0].balance).toBeCloseTo(3305.42, 2)
       expect(deposits[0].deposits.length).toBe(1) // Only initial
       expect(deposits[0].withdrawals.length).toBe(3)
     })

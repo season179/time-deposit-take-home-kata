@@ -41,9 +41,12 @@ describe('Multiple Account Scenarios', () => {
     deposits.forEach(d => expect(d.interestApplications.length).toBe(1))
     
     // Different rates produce different results
-    expect(deposits[0].balance).toBeCloseTo(1000.83, 2) // Basic: 1%
-    expect(deposits[1].balance).toBeCloseTo(1002.50, 2) // Student: 3%
-    expect(deposits[2].balance).toBeCloseTo(1004.17, 2) // Premium: 5%
+    // Basic (1%): 1000 × (0.01 / 365) × 60 = 1.64
+    // Student (3%): 1000 × (0.03 / 365) × 60 = 4.93
+    // Premium (5%): 1000 × (0.05 / 365) × 60 = 8.22
+    expect(deposits[0].balance).toBeCloseTo(1001.64, 2) // Basic: 1%
+    expect(deposits[1].balance).toBeCloseTo(1004.93, 2) // Student: 3%
+    expect(deposits[2].balance).toBeCloseTo(1008.22, 2) // Premium: 5%
   })
 
   test('Mix of accounts in grace period and earning interest', async () => {
@@ -95,10 +98,12 @@ describe('Multiple Account Scenarios', () => {
     const deposits = await repository.findAll()
     
     // Dormant: 1000 + interest on 1000
-    expect(deposits[0].balance).toBeCloseTo(1000.83, 2)
+    // Interest: 1000 × (0.01 / 365) × 60 = 1.64
+    expect(deposits[0].balance).toBeCloseTo(1001.64, 2)
     
     // Active: 1000 - 200 + 300 + interest on 1100
-    expect(deposits[1].balance).toBeCloseTo(1100.92, 2)
+    // Interest: 1100 × (0.01 / 365) × 60 = 1.81
+    expect(deposits[1].balance).toBeCloseTo(1101.81, 2)
   })
 
   test('Accounts with same plan but different ages', async () => {
@@ -157,9 +162,11 @@ describe('Multiple Account Scenarios', () => {
     // All should have interest
     deposits.forEach(d => expect(d.interestApplications.length).toBe(1))
     
-    // Interest should scale with balance
-    expect(deposits[0].balance).toBeCloseTo(100.25, 2)
-    expect(deposits[9].balance).toBeCloseTo(501250.00, 2)
+    // Interest should scale with balance (Student 3%, 60 days)
+    // 100 × (0.03 / 365) × 60 = 0.49
+    // 500000 × (0.03 / 365) × 60 = 2465.75
+    expect(deposits[0].balance).toBeCloseTo(100.49, 2)
+    expect(deposits[9].balance).toBeCloseTo(502465.75, 2)
   })
 
   test('Accounts with mixed activity levels get independent treatment', async () => {
@@ -207,11 +214,15 @@ describe('Multiple Account Scenarios', () => {
 
     const deposits = await repository.findAll()
     
-    // Verify each account computed independently
-    expect(deposits[0].balance).toBeCloseTo(1000.83, 2) // 1000 + interest
-    expect(deposits[1].balance).toBeCloseTo(900.75, 2)  // 1000 - 100 + interest
-    expect(deposits[2].balance).toBeCloseTo(1501.25, 2) // 1000 + 500 + interest
-    expect(deposits[3].balance).toBeCloseTo(900.75, 2)  // 1000 - 300 + 200 + interest
+    // Verify each account computed independently (Basic 1%, 60 days)
+    // Account 0: 1000 × (0.01 / 365) × 60 = 1.64
+    // Account 1: 900 × (0.01 / 365) × 60 = 1.48
+    // Account 2: 1500 × (0.01 / 365) × 60 = 2.47
+    // Account 3: 900 × (0.01 / 365) × 60 = 1.48
+    expect(deposits[0].balance).toBeCloseTo(1001.64, 2) // 1000 + interest
+    expect(deposits[1].balance).toBeCloseTo(901.48, 2)  // 1000 - 100 + interest
+    expect(deposits[2].balance).toBeCloseTo(1502.47, 2) // 1000 + 500 + interest
+    expect(deposits[3].balance).toBeCloseTo(901.48, 2)  // 1000 - 300 + 200 + interest
     expect(deposits[4].balance).toBe(0)                  // 1000 - 1000
   })
 

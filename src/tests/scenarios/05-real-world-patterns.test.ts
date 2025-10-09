@@ -257,7 +257,7 @@ describe('Real-World Usage Patterns', () => {
 
       const deposits = await repository.findAll()
       expect(deposits[0].interestApplications.length).toBe(1)
-      expect(deposits[0].balance).toBeCloseTo(10008.33, 2) // 10000 * 0.01 / 12 = 8.33
+      expect(deposits[0].balance).toBeCloseTo(10016.44, 2) // 10000 × (0.01 / 365) × 60 = 16.44
     })
 
     test('Interest compounds differently with withdrawals in between', async () => {
@@ -280,7 +280,7 @@ describe('Real-World Usage Patterns', () => {
         openingDate: sixtyDaysAgo,
       })
 
-      // First interest for both (5000 * 0.03 / 12 = 12.50)
+      // First interest for both (5000 × (0.03 / 365) × 60 = 24.66)
       await updateUseCase.execute()
       
       // Withdrawal from B only
@@ -290,18 +290,18 @@ describe('Real-World Usage Patterns', () => {
         date: new Date(),
       })
 
-      // Second call on same day - IDEMPOTENT (no new interest)
+      // Second call on same day - 0 days elapsed (no new interest)
       await updateUseCase.execute()
 
       const deposits = await repository.findAll()
       const balanceA = deposits.find(d => d.id === tdA.id)!.balance
       const balanceB = deposits.find(d => d.id === tdB.id)!.balance
 
-      // A: 5000 + 12.50 = 5012.50
-      // B: 5000 + 12.50 - 1000 = 4012.50
+      // A: 5000 + 24.66 = 5024.66
+      // B: 5000 + 24.66 - 1000 = 4024.66
       // Difference should be exactly 1000 (the withdrawal amount)
-      expect(balanceA).toBeCloseTo(5012.50, 2)
-      expect(balanceB).toBeCloseTo(4012.50, 2)
+      expect(balanceA).toBeCloseTo(5024.66, 2)
+      expect(balanceB).toBeCloseTo(4024.66, 2)
       expect(balanceA - balanceB).toBeCloseTo(1000, 2)
     })
   })

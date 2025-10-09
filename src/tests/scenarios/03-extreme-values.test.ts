@@ -58,7 +58,7 @@ describe('Extreme Values and Edge Cases', () => {
       await updateUseCase.execute()
 
       const deposits = await repository.findAll()
-      // 1 * 0.01 / 12 = 0.000833... rounds to 0.00
+      // 1 × (0.01 / 365) × 60 = 0.00164... rounds to 0.00
       expect(deposits[0].interestApplications.length).toBe(0)
       expect(deposits[0].balance).toBe(1)
     })
@@ -77,9 +77,9 @@ describe('Extreme Values and Edge Cases', () => {
       await updateUseCase.execute()
 
       const deposits = await repository.findAll()
-      // 10 * 0.01 / 12 = 0.00833... rounds to 0.01
+      // 10 × (0.01 / 365) × 60 = 0.0164 rounds to 0.02
       expect(deposits[0].interestApplications.length).toBe(1)
-      expect(deposits[0].balance).toBeCloseTo(10.01, 2)
+      expect(deposits[0].balance).toBeCloseTo(10.02, 2)
     })
 
     test('$0.01 balance - no interest', async () => {
@@ -116,9 +116,9 @@ describe('Extreme Values and Edge Cases', () => {
       await updateUseCase.execute()
 
       const deposits = await repository.findAll()
-      // 1000000 * 0.05 / 12 = 4166.67
-      expect(deposits[0].interestApplications[0].amount).toBeCloseTo(4166.67, 2)
-      expect(deposits[0].balance).toBeCloseTo(1004166.67, 2)
+      // 1000000 × (0.05 / 365) × 60 = 8219.18
+      expect(deposits[0].interestApplications[0].amount).toBeCloseTo(8219.18, 2)
+      expect(deposits[0].balance).toBeCloseTo(1008219.18, 2)
     })
 
     test('$10 million balance - large interest amounts', async () => {
@@ -135,9 +135,9 @@ describe('Extreme Values and Edge Cases', () => {
       await updateUseCase.execute()
 
       const deposits = await repository.findAll()
-      // 10000000 * 0.05 / 12 = 41666.67
-      expect(deposits[0].interestApplications[0].amount).toBeCloseTo(41666.67, 2)
-      expect(deposits[0].balance).toBeCloseTo(10041666.67, 2)
+      // 10000000 × (0.05 / 365) × 60 = 82191.78
+      expect(deposits[0].interestApplications[0].amount).toBeCloseTo(82191.78, 2)
+      expect(deposits[0].balance).toBeCloseTo(10082191.78, 2)
     })
 
     test('$100 million balance - extreme precision', async () => {
@@ -154,9 +154,9 @@ describe('Extreme Values and Edge Cases', () => {
       await updateUseCase.execute()
 
       const deposits = await repository.findAll()
-      // 100000000 * 0.03 / 12 = 250000.00
-      expect(deposits[0].interestApplications[0].amount).toBeCloseTo(250000.00, 2)
-      expect(deposits[0].balance).toBeCloseTo(100250000.00, 2)
+      // 100000000 × (0.03 / 365) × 60 = 493150.68
+      expect(deposits[0].interestApplications[0].amount).toBeCloseTo(493150.68, 2)
+      expect(deposits[0].balance).toBeCloseTo(100493150.68, 2)
     })
   })
 
@@ -175,8 +175,8 @@ describe('Extreme Values and Edge Cases', () => {
       await updateUseCase.execute()
 
       const deposits = await repository.findAll()
-      // 100.99 * 0.01 / 12 = 0.08416... rounds to 0.08
-      expect(deposits[0].balance).toBeCloseTo(101.07, 2)
+      // 100.99 × (0.01 / 365) × 60 = 0.1662 rounds to 0.17
+      expect(deposits[0].balance).toBeCloseTo(101.16, 2)
     })
 
     test('$99.99 - boundary near 100', async () => {
@@ -193,8 +193,8 @@ describe('Extreme Values and Edge Cases', () => {
       await updateUseCase.execute()
 
       const deposits = await repository.findAll()
-      // 99.99 * 0.01 / 12 = 0.08332... rounds to 0.08
-      expect(deposits[0].balance).toBeCloseTo(100.07, 2)
+      // 99.99 × (0.01 / 365) × 60 = 0.1646 rounds to 0.16
+      expect(deposits[0].balance).toBeCloseTo(100.15, 2)
     })
 
     test('$1000.01 - odd penny', async () => {
@@ -211,8 +211,8 @@ describe('Extreme Values and Edge Cases', () => {
       await updateUseCase.execute()
 
       const deposits = await repository.findAll()
-      // 1000.01 * 0.03 / 12 = 2.50002... rounds to 2.50
-      expect(deposits[0].balance).toBeCloseTo(1002.51, 2)
+      // 1000.01 × (0.03 / 365) × 60 = 4.93 rounds to 4.93
+      expect(deposits[0].balance).toBeCloseTo(1004.94, 2)
     })
   })
 
@@ -236,8 +236,8 @@ describe('Extreme Values and Edge Cases', () => {
       await updateUseCase.execute()
 
       const deposits = await repository.findAll()
-      // Event replay: 100 - 90 + interest on 10
-      expect(deposits[0].balance).toBeCloseTo(10.01, 2)
+      // Event replay: 100 - 90 + interest on 10: 10 × (0.01 / 365) × 60 = 0.02
+      expect(deposits[0].balance).toBeCloseTo(10.02, 2)
     })
 
     test('Bring balance to near zero through many small withdrawals', async () => {
@@ -279,8 +279,8 @@ describe('Extreme Values and Edge Cases', () => {
       await updateUseCase.execute()
 
       const deposits = await repository.findAll()
-      // Should not have floating point errors
-      expect(deposits[0].balance).toBeCloseTo(33.36, 2)
+      // Should not have floating point errors: 33.33 × (0.01 / 365) × 60 = 0.05
+      expect(deposits[0].balance).toBeCloseTo(33.38, 2)
     })
 
     test('Repeated small additions maintain precision', async () => {
@@ -357,8 +357,8 @@ describe('Extreme Values and Edge Cases', () => {
       await updateUseCase.execute()
 
       const deposits = await repository.findAll()
-      // 1000 - 1000 + 500 + interest on 500
-      expect(deposits[0].balance).toBeCloseTo(501.25, 2) // 500 + (500 * 0.03 / 12)
+      // 1000 - 1000 + 500 + interest on 500: 500 × (0.03 / 365) × 60 = 2.47
+      expect(deposits[0].balance).toBeCloseTo(502.47, 2)
     })
   })
 })

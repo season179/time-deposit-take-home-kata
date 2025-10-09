@@ -39,11 +39,11 @@ describe('UpdateAllTimeDepositBalances - Event Sourcing Integration', () => {
     deposits = await repository.findAll()
     expect(deposits[0].interestApplications.length).toBe(1)
     
-    // Verify the interest amount is correct (1000 * 0.01 / 12 = 0.83)
-    expect(deposits[0].interestApplications[0].amount).toBeCloseTo(0.83, 2)
+    // Verify the interest amount is correct (1000 × (0.01 / 365) × 60 = 1.64)
+    expect(deposits[0].interestApplications[0].amount).toBeCloseTo(1.64, 2)
     
     // Verify stored balance was updated
-    expect(deposits[0].balance).toBeCloseTo(1000.83, 2)
+    expect(deposits[0].balance).toBeCloseTo(1001.64, 2)
   })
 
   test('CRITICAL: should respect event chronology - withdrawal before vs after interest', async () => {
@@ -63,7 +63,7 @@ describe('UpdateAllTimeDepositBalances - Event Sourcing Integration', () => {
     
     let deposits = await repository.findAll()
     const balanceAfterInterest1 = deposits.find(d => d.id === td1.id)!.balance
-    expect(balanceAfterInterest1).toBeCloseTo(1000.83, 2) // 1000 + 0.83
+    expect(balanceAfterInterest1).toBeCloseTo(1001.64, 2) // 1000 + 1.64
 
     // Then withdraw
     await repository.addWithdrawal({
@@ -74,7 +74,7 @@ describe('UpdateAllTimeDepositBalances - Event Sourcing Integration', () => {
 
     deposits = await repository.findAll()
     const finalBalance1 = deposits.find(d => d.id === td1.id)!.balance
-    expect(finalBalance1).toBeCloseTo(500.83, 2) // 1000.83 - 500
+    expect(finalBalance1).toBeCloseTo(501.64, 2) // 1001.64 - 500
 
     // Scenario 2: Deposit -> Withdrawal -> Interest (different time deposit)
     const td2 = await repository.create({
@@ -95,14 +95,15 @@ describe('UpdateAllTimeDepositBalances - Event Sourcing Integration', () => {
     const balanceAfterWithdrawal = deposits.find(d => d.id === td2.id)!.balance
     expect(balanceAfterWithdrawal).toBe(500) // 1000 - 500
 
-    // Now apply interest (on the reduced balance of 500)
+    // Now apply interest - 60 days since opening, calculated on current balance
+    // Interest on 500 for 60 days: 500 × (0.01 / 365) × 60 = 0.82
     await updateUseCase.execute()
 
     deposits = await repository.findAll()
     const finalBalance2 = deposits.find(d => d.id === td2.id)!.balance
     
-    // Interest on 500: 500 * 0.01 / 12 = 0.42 (rounded)
-    expect(finalBalance2).toBeCloseTo(500.42, 2)
+    // Balance: 500 + 0.82 = 500.82
+    expect(finalBalance2).toBeCloseTo(500.82, 2)
 
     // CRITICAL VERIFICATION: The two scenarios produce different results
     // because event order matters
@@ -125,15 +126,15 @@ describe('UpdateAllTimeDepositBalances - Event Sourcing Integration', () => {
     await updateUseCase.execute()
     let deposits = await repository.findAll()
     expect(deposits[0].interestApplications.length).toBe(1)
-    expect(deposits[0].balance).toBeCloseTo(1000.83, 2)
+    expect(deposits[0].balance).toBeCloseTo(1001.64, 2)
 
-    // Second interest application on SAME DAY should be idempotent (no new interest)
+    // Second call on SAME DAY - 0 days elapsed, no new interest
     await updateUseCase.execute()
     deposits = await repository.findAll()
-    expect(deposits[0].interestApplications.length).toBe(1) // Still only 1 due to idempotency
+    expect(deposits[0].interestApplications.length).toBe(1) // Still only 1
     
-    // Balance remains unchanged because interest already applied today
-    expect(deposits[0].balance).toBeCloseTo(1000.83, 2)
+    // Balance remains unchanged (0 days elapsed)
+    expect(deposits[0].balance).toBeCloseTo(1001.64, 2)
   })
 
   test('should replay all events in correct order for complex scenarios', async () => {
@@ -148,11 +149,11 @@ describe('UpdateAllTimeDepositBalances - Event Sourcing Integration', () => {
       openingDate: sixtyDaysAgo,
     })
 
-    // Apply first interest (10000 * 0.03 / 12 = 25.00)
+    // Apply first interest (10000 × (0.03 / 365) × 60 = 49.32)
     await updateUseCase.execute()
     
     let deposits = await repository.findAll()
-    expect(deposits[0].balance).toBeCloseTo(10025.00, 2)
+    expect(deposits[0].balance).toBeCloseTo(10049.32, 2)
 
     // Make a withdrawal
     await repository.addWithdrawal({
@@ -162,21 +163,21 @@ describe('UpdateAllTimeDepositBalances - Event Sourcing Integration', () => {
     })
 
     deposits = await repository.findAll()
-    expect(deposits[0].balance).toBeCloseTo(8025.00, 2)
+    expect(deposits[0].balance).toBeCloseTo(8049.32, 2)
 
-    // Attempt second interest application (BLOCKED by idempotency - same day)
+    // Attempt second call on same day (0 days elapsed - no new interest)
     await updateUseCase.execute()
 
     deposits = await repository.findAll()
     
-    // Verify event counts - only 1 interest due to idempotency
+    // Verify event counts - only 1 interest (0 days elapsed)
     expect(deposits[0].deposits.length).toBe(1) // Initial deposit
     expect(deposits[0].withdrawals.length).toBe(1)
-    expect(deposits[0].interestApplications.length).toBe(1) // Only first interest applied
+    expect(deposits[0].interestApplications.length).toBe(1) // Only first interest
     
     // Verify final balance from event replay
-    // 10000 (deposit) + 25 (first interest) - 2000 (withdrawal) = 8025.00
-    expect(deposits[0].balance).toBeCloseTo(8025.00, 2)
+    // 10000 (deposit) + 49.32 (interest) - 2000 (withdrawal) = 8049.32
+    expect(deposits[0].balance).toBeCloseTo(8049.32, 2)
   })
 
   test('should handle no interest for accounts within grace period', async () => {
@@ -213,9 +214,9 @@ describe('UpdateAllTimeDepositBalances - Event Sourcing Integration', () => {
 
     const deposits = await repository.findAll()
     
-    // Interest should be applied (10000 * 0.05 / 12 = 41.67)
+    // Interest should be applied (10000 × (0.05 / 365) × 46 = 63.01)
     expect(deposits[0].interestApplications.length).toBe(1)
-    expect(deposits[0].interestApplications[0].amount).toBeCloseTo(41.67, 2)
-    expect(deposits[0].balance).toBeCloseTo(10041.67, 2)
+    expect(deposits[0].interestApplications[0].amount).toBeCloseTo(63.01, 2)
+    expect(deposits[0].balance).toBeCloseTo(10063.01, 2)
   })
 })

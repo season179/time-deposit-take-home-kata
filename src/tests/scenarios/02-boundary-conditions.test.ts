@@ -244,9 +244,10 @@ describe('Boundary Conditions - Day Thresholds', () => {
       await updateUseCase.execute()
 
       const deposits = await repository.findAll()
-      // Should get interest on reduced balance (3000)
+      // Should get interest on reduced balance (3000) for 365 days
+      // Interest: 3000 × (0.03 / 365) × 365 = 90
       expect(deposits[0].interestApplications.length).toBe(1)
-      expect(deposits[0].balance).toBeCloseTo(3007.50, 2) // 3000 + (3000 * 0.03 / 12)
+      expect(deposits[0].balance).toBeCloseTo(3090, 2)
     })
 
     test('Student at day 366 with deposit gets no interest', async () => {

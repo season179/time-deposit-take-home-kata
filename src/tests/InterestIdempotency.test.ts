@@ -4,11 +4,13 @@ import { UpdateAllTimeDepositBalances } from '../application/usecases/UpdateAllT
 import { createTestContext } from './helpers/testDatabase'
 
 /**
- * Interest Application Idempotency Tests
+ * Interest Application Idempotency Tests (Prorated Interest)
  * 
- * Verifies that calling the update-balances endpoint multiple times on the same day
- * does NOT result in duplicate interest applications, preventing the critical bug
- * where rapid successive calls would compound interest multiple times.
+ * Verifies that interest is calculated based on days elapsed since last interest
+ * application. Multiple calls on the same day result in 0 additional interest
+ * because daysSinceLastInterest = 0, providing natural idempotency.
+ * 
+ * Interest formula: (annualRate / 365) × daysSinceLastInterest × balance
  */
 describe('Interest Application Idempotency', () => {
   let repository: DrizzleTimeDepositRepository
@@ -32,22 +34,23 @@ describe('Interest Application Idempotency', () => {
       openingDate: sixtyDaysAgo,
     })
 
-    // First call: Apply interest
+    // First call: Apply interest for 60 days
+    // Interest = 1000 × (0.01 / 365) × 60 = 1.64
     await updateUseCase.execute()
 
     let deposits = await repository.findAll()
     expect(deposits[0].interestApplications.length).toBe(1)
-    expect(deposits[0].interestApplications[0].amount).toBeCloseTo(0.83, 2) // 1000 * 0.01 / 12
-    expect(deposits[0].balance).toBeCloseTo(1000.83, 2)
+    expect(deposits[0].interestApplications[0].amount).toBeCloseTo(1.64, 2)
+    expect(deposits[0].balance).toBeCloseTo(1001.64, 2)
 
-    // Second call: Should be idempotent (NO NEW INTEREST)
+    // Second call: Should result in 0 additional interest (same day, 0 days elapsed)
     await updateUseCase.execute()
 
     deposits = await repository.findAll()
     
-    // CRITICAL ASSERTIONS: Interest should NOT be duplicated
+    // CRITICAL ASSERTIONS: No new interest applied
     expect(deposits[0].interestApplications.length).toBe(1) // Still only 1
-    expect(deposits[0].balance).toBeCloseTo(1000.83, 2) // No change
+    expect(deposits[0].balance).toBeCloseTo(1001.64, 2) // No change
   })
 
   test('Calling update-balances multiple times (3x) on same day should only apply interest once', async () => {
@@ -61,16 +64,16 @@ describe('Interest Application Idempotency', () => {
       openingDate: sixtyDaysAgo,
     })
 
-    // Expected interest: 5000 * 0.03 / 12 = 12.50
-    const expectedInterest = 12.50
+    // Expected interest: 5000 × (0.03 / 365) × 60 = 24.66
+    const expectedInterest = 24.66
 
-    // Call 1
+    // Call 1: Applies interest for 60 days
     await updateUseCase.execute()
     
-    // Call 2 (seconds later)
+    // Call 2 (seconds later): 0 days elapsed, no new interest
     await updateUseCase.execute()
     
-    // Call 3 (seconds later)
+    // Call 3 (seconds later): 0 days elapsed, no new interest
     await updateUseCase.execute()
 
     const deposits = await repository.findAll()
@@ -81,7 +84,7 @@ describe('Interest Application Idempotency', () => {
     expect(deposits[0].balance).toBeCloseTo(5000 + expectedInterest, 2)
   })
 
-  test('Calling update-balances on different days SHOULD apply interest multiple times', async () => {
+  test('Calling update-balances on different days SHOULD apply interest for elapsed days', async () => {
     const sixtyDaysAgo = new Date()
     sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60)
     
@@ -92,32 +95,32 @@ describe('Interest Application Idempotency', () => {
       openingDate: sixtyDaysAgo,
     })
 
-    // Day 1: Apply interest
+    // Day 1: Apply interest for 60 days
+    // Interest = 1000 × (0.01 / 365) × 60 = 1.64
     await updateUseCase.execute()
 
     let deposits = await repository.findAll()
     expect(deposits[0].interestApplications.length).toBe(1)
-    const firstInterestAmount = deposits[0].interestApplications[0].amount
+    expect(deposits[0].interestApplications[0].amount).toBeCloseTo(1.64, 2)
     const firstBalance = deposits[0].balance
 
-    // Simulate Day 2: Manually add interest application with tomorrow's date
+    // Simulate Day 2: Manually add interest application for 1 day elapsed
     const tomorrow = new Date()
     tomorrow.setDate(tomorrow.getDate() + 1)
     
-    // We need to manually add an interest for tomorrow to test
-    // (In real scenario, this would be called the next day)
+    // Interest for 1 day: 1001.64 × (0.01 / 365) × 1 = 0.03
     await repository.addInterestApplication({
       timeDepositId: td.id,
-      amount: 0.83, // Same amount for consistency
+      amount: 0.03,
       date: tomorrow,
     })
 
     deposits = await repository.findAll()
     
-    // Verify TWO interest applications (one for each day)
+    // Verify TWO interest applications (different days)
     expect(deposits[0].interestApplications.length).toBe(2)
-    expect(deposits[0].interestApplications[0].amount).toBeCloseTo(firstInterestAmount, 2)
-    expect(deposits[0].interestApplications[1].amount).toBeCloseTo(0.83, 2)
+    expect(deposits[0].interestApplications[0].amount).toBeCloseTo(1.64, 2)
+    expect(deposits[0].interestApplications[1].amount).toBeCloseTo(0.03, 2)
   })
 
   test('Idempotency works correctly with multiple time deposits', async () => {
@@ -146,7 +149,7 @@ describe('Interest Application Idempotency', () => {
       openingDate: sixtyDaysAgo,
     })
 
-    // First call: Apply interest to all
+    // First call: Apply interest for 60 days to all
     const result1 = await updateUseCase.execute()
     expect(result1.updated).toBe(3)
 
@@ -159,24 +162,24 @@ describe('Interest Application Idempotency', () => {
     
     const balances1 = deposits.map(d => d.balance)
 
-    // Second call: Should be idempotent for all
+    // Second call: 0 days elapsed, no new interest
     const result2 = await updateUseCase.execute()
-    expect(result2.updated).toBe(3) // All updated (balance refresh) but no new interest
+    expect(result2.updated).toBe(3)
 
     deposits = await repository.findAll()
     
-    // Verify STILL only 1 interest application each
+    // Verify STILL only 1 interest application each (0 days elapsed)
     expect(deposits[0].interestApplications.length).toBe(1)
     expect(deposits[1].interestApplications.length).toBe(1)
     expect(deposits[2].interestApplications.length).toBe(1)
     
-    // Verify balances unchanged
+    // Verify balances unchanged (0 days = no new interest)
     expect(deposits[0].balance).toBe(balances1[0])
     expect(deposits[1].balance).toBe(balances1[1])
     expect(deposits[2].balance).toBe(balances1[2])
   })
 
-  test('Idempotency check works correctly at day boundaries', async () => {
+  test('Interest calculation respects days elapsed principle', async () => {
     const sixtyDaysAgo = new Date()
     sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60)
     
@@ -187,26 +190,26 @@ describe('Interest Application Idempotency', () => {
       openingDate: sixtyDaysAgo,
     })
 
-    // Manually add an interest application at 11:59 PM today
-    const lateTonight = new Date()
-    lateTonight.setHours(23, 59, 59, 999)
+    // Manually add an interest application for some past date
+    const yesterday = new Date()
+    yesterday.setDate(yesterday.getDate() - 1)
     
     await repository.addInterestApplication({
       timeDepositId: td.id,
-      amount: 0.83,
-      date: lateTonight,
+      amount: 1.64, // 60 days worth
+      date: yesterday,
     })
 
-    // Try to apply interest again (should be blocked since there's already one today)
+    // Call today - should calculate interest for 1 day since yesterday
+    // Interest for 1 day: 1001.64 × (0.01 / 365) × 1 = 0.03
     await updateUseCase.execute()
 
     const deposits = await repository.findAll()
     
-    // Should still have only 1 interest application (the late night one)
-    expect(deposits[0].interestApplications.length).toBe(1)
-    // Check it's the same date within a second (database may truncate milliseconds)
-    const timeDiff = Math.abs(deposits[0].interestApplications[0].date.getTime() - lateTonight.getTime())
-    expect(timeDiff).toBeLessThan(1000)
+    // Should have 2 interest applications
+    expect(deposits[0].interestApplications.length).toBe(2)
+    // Second application should be for just 1 day
+    expect(deposits[0].interestApplications[1].amount).toBeCloseTo(0.03, 2)
   })
 
   test('Accounts with no interest (grace period) handle idempotency correctly', async () => {
@@ -247,12 +250,12 @@ describe('Interest Application Idempotency', () => {
       openingDate: sixtyDaysAgo,
     })
 
-    // Apply interest
+    // Apply interest for 60 days: 10000 × (0.01 / 365) × 60 = 16.44
     await updateUseCase.execute()
 
     let deposits = await repository.findAll()
     const balanceAfterInterest = deposits[0].balance
-    expect(balanceAfterInterest).toBeCloseTo(10008.33, 2) // 10000 + (10000 * 0.01 / 12)
+    expect(balanceAfterInterest).toBeCloseTo(10016.44, 2)
 
     // Make a withdrawal
     await repository.addWithdrawal({
@@ -263,15 +266,15 @@ describe('Interest Application Idempotency', () => {
 
     deposits = await repository.findAll()
     const balanceAfterWithdrawal = deposits[0].balance
-    expect(balanceAfterWithdrawal).toBeCloseTo(5008.33, 2)
+    expect(balanceAfterWithdrawal).toBeCloseTo(5016.44, 2)
 
-    // Try to apply interest again (same day) - should be blocked
+    // Try to apply interest again (same day) - 0 days elapsed = no new interest
     await updateUseCase.execute()
 
     deposits = await repository.findAll()
     
-    // Balance should remain the same (no new interest)
-    expect(deposits[0].balance).toBeCloseTo(5008.33, 2)
+    // Balance should remain the same (0 days elapsed)
+    expect(deposits[0].balance).toBeCloseTo(5016.44, 2)
     expect(deposits[0].interestApplications.length).toBe(1)
   })
 

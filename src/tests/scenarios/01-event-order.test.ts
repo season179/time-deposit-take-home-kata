@@ -36,7 +36,9 @@ describe('Event Order Scenarios', () => {
     await repository.addWithdrawal({ timeDepositId: td.id, amount: 500, date: new Date() })
 
     const deposits = await repository.findAll()
-    expect(deposits[0].balance).toBeCloseTo(500.83, 2) // 1000 + 0.83 - 500
+    // Interest: 1000 × (0.01 / 365) × 60 = 1.64
+    // Balance: 1000 + 1.64 - 500 = 501.64
+    expect(deposits[0].balance).toBeCloseTo(501.64, 2)
   })
 
   test('Deposit → Withdrawal → Interest produces lower balance', async () => {
@@ -54,7 +56,9 @@ describe('Event Order Scenarios', () => {
     await updateUseCase.execute() // Interest on 500
 
     const deposits = await repository.findAll()
-    expect(deposits[0].balance).toBeCloseTo(500.42, 2) // 1000 - 500 + 0.42
+    // Interest on 500: 500 × (0.01 / 365) × 60 = 0.82
+    // Balance: 1000 - 500 + 0.82 = 500.82
+    expect(deposits[0].balance).toBeCloseTo(500.82, 2)
   })
 
   test('Multiple deposits with interest interspersed', async () => {
@@ -68,7 +72,8 @@ describe('Event Order Scenarios', () => {
       openingDate: sixtyDaysAgo,
     })
 
-    await updateUseCase.execute() // Interest on 1000: 1000 * 0.03 / 12 = 2.50
+    // Interest on 1000: 1000 × (0.03 / 365) × 60 = 4.93
+    await updateUseCase.execute()
 
     await repository.db.insert(schema.deposits).values({
       timeDepositId: td.id,
@@ -80,8 +85,8 @@ describe('Event Order Scenarios', () => {
     await updateUseCase.execute()
 
     const deposits = await repository.findAll()
-    // Balance: 1000 + 2.50 (interest) + 500 (deposit) = 1502.50
-    expect(deposits[0].balance).toBeCloseTo(1502.50, 2)
+    // Balance: 1000 + 4.93 (interest) + 500 (deposit) = 1504.93
+    expect(deposits[0].balance).toBeCloseTo(1504.93, 2)
     expect(deposits[0].interestApplications.length).toBe(1) // Only one interest due to idempotency
   })
 
@@ -106,7 +111,9 @@ describe('Event Order Scenarios', () => {
     await updateUseCase.execute()
 
     const deposits = await repository.findAll()
-    expect(deposits[0].balance).toBeCloseTo(600.50, 2) // 1000 - 900 + 500 + 0.50
+    // Interest on 600: 600 × (0.01 / 365) × 60 = 0.99
+    // Balance: 1000 - 900 + 500 + 0.99 = 600.99
+    expect(deposits[0].balance).toBeCloseTo(600.99, 2)
   })
 
   test('Complex sequence: Deposit → Interest → Withdrawal → Deposit → Interest', async () => {
@@ -120,7 +127,7 @@ describe('Event Order Scenarios', () => {
       openingDate: sixtyDaysAgo,
     })
 
-    // First interest: 5000 * 0.03 / 12 = 12.50
+    // First interest: 5000 × (0.03 / 365) × 60 = 24.66
     await updateUseCase.execute()
     
     // Withdrawal
@@ -137,9 +144,9 @@ describe('Event Order Scenarios', () => {
     await updateUseCase.execute()
 
     const deposits = await repository.findAll()
-    // Event replay: 5000 + 12.50 (interest) - 2000 (withdrawal) + 1000 (deposit)
-    // Total: 4012.50 (no second interest due to idempotency)
-    expect(deposits[0].balance).toBeCloseTo(4012.50, 2)
+    // Event replay: 5000 + 24.66 (interest) - 2000 (withdrawal) + 1000 (deposit)
+    // Total: 4024.66 (no second interest due to idempotency)
+    expect(deposits[0].balance).toBeCloseTo(4024.66, 2)
     expect(deposits[0].interestApplications.length).toBe(1) // Only one due to idempotency
   })
 
