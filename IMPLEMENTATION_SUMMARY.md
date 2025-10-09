@@ -233,6 +233,63 @@ The `BreakingChangeGuardrails.test.ts` suite ensures:
 }
 ```
 
+## 🔄 Money-Movement Refinement (Post-Implementation Enhancement)
+
+After the initial implementation, the system was enhanced to track money movements more accurately:
+
+### Changes Made
+
+**1. New `deposits` Table**
+- Added a `deposits` table to track all money-in events symmetrically with `withdrawals`
+- Schema: `id`, `timeDepositId` (FK), `amount`, `date`
+- Every time deposit now has at least one deposit record (the initial deposit)
+- Enables accurate tracking of when money entered the account
+
+**2. Dynamic `days` Computation**
+- Instead of storing `days` as a static value, it's now computed from the earliest deposit date
+- Formula: `days = floor((today - earliestDepositDate) / 1 day)`
+- Benefits:
+  - Eliminates manual upkeep
+  - Ensures accurate elapsed time for interest calculations
+  - Automatically updates as time progresses
+
+**3. Balance as Running Total**
+- `timeDeposits.balance` is maintained as a running total
+- Updated atomically when:
+  - A deposit is created (balance increases)
+  - A withdrawal is added (balance decreases)
+  - Interest is applied via `updateBalance()` (balance increases)
+
+**4. Transaction Safety**
+- `create()`: Inserts time deposit + initial deposit record in one transaction
+- `addWithdrawal()`: Inserts withdrawal record + decrements balance atomically
+- Ensures data consistency
+
+**5. Backward Compatibility**
+- All public APIs remain unchanged (`TimeDeposit` class, `TimeDepositCalculator`)
+- Existing tests continue to pass without modification
+- Legacy `days` field in `CreateTimeDepositDto` is used to compute the opening date
+
+### Migration Path
+
+```bash
+# Generate migration for deposits table
+bun run db:generate
+
+# Apply migration
+bun run db:migrate
+
+# Reseed database with deposit records
+bun run db:seed
+```
+
+### Benefits
+
+- **Audit Trail**: Complete history of all money movements (deposits + withdrawals)
+- **Accurate Time Tracking**: Days computed from actual deposit dates, not manually maintained
+- **Event Sourcing Lite**: Immutable event records enable reconstruction of account state
+- **Future-Proof**: Easy to add features like interest compounding, partial withdrawals, etc.
+
 ## ✨ Highlights
 
 1. **Type-safe end-to-end**: TypeScript + Drizzle ORM ensures compile-time safety
@@ -241,3 +298,4 @@ The `BreakingChangeGuardrails.test.ts` suite ensures:
 4. **Self-documenting API**: OpenAPI/Swagger with interactive UI
 5. **Fast tests**: In-memory SQLite for instant test execution
 6. **Production-ready**: Error handling, logging, CORS support
+7. **Event-driven balance model**: Complete audit trail with immutable money-movement records

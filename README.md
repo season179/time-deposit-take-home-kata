@@ -152,14 +152,38 @@ bun run db:studio
 **timeDeposits**
 - `id` (integer, primary key)
 - `planType` (text, required)
-- `days` (integer, required)
-- `balance` (real, required)
+- `days` (integer, required) - Computed from earliest deposit date on read
+- `balance` (real, required) - Running total: deposits - withdrawals + accrued interest
 
-**withdrawals**
+**deposits** (Money-in events)
 - `id` (integer, primary key)
-- `timeDepositId` (integer, foreign key → timeDeposits.id)
+- `timeDepositId` (integer, foreign key → timeDeposits.id, cascade delete)
 - `amount` (real, required)
 - `date` (timestamp, required)
+
+**withdrawals** (Money-out events)
+- `id` (integer, primary key)
+- `timeDepositId` (integer, foreign key → timeDeposits.id, cascade delete)
+- `amount` (real, required)
+- `date` (timestamp, required)
+
+### Money-Movement Model
+
+The system tracks all money movements as immutable event records:
+
+- **Deposits**: Track all money-in events (including the initial deposit when an account is opened)
+- **Withdrawals**: Track all money-out events
+- **Balance Computation**: The `balance` field in `timeDeposits` is a running total that reflects:
+  - Sum of all deposits
+  - Minus sum of all withdrawals
+  - Plus accrued interest from the `updateBalance` operation
+- **Days Computation**: Instead of storing a static `days` value, the system computes it dynamically from the earliest deposit date:
+  - `days = floor((today - earliestDepositDate) / 1 day)`
+  - This ensures accurate time-based interest calculations without manual upkeep
+
+**Atomicity Guarantees:**
+- Creating a time deposit inserts both a `timeDeposits` record and an initial `deposits` record in a single transaction
+- Adding a withdrawal inserts a `withdrawals` record and decrements the stored balance atomically
 
 ## 🛡️ Breaking Change Protection
 

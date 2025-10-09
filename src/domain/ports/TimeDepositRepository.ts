@@ -48,11 +48,25 @@ export interface TimeDepositRepository {
  */
 export interface CreateTimeDepositDto {
   planType: string
-  days: number
+  days: number // Legacy field - will be computed from openingDate if not provided
   balance: number
+  openingDate?: Date // Optional opening date - defaults to today if not provided
+}
+
+export interface CreateDepositDto {
+  timeDepositId: number
+  amount: number
+  date: Date
 }
 
 export interface CreateWithdrawalDto {
+  timeDepositId: number
+  amount: number
+  date: Date
+}
+
+export interface DepositDto {
+  id: number
   timeDepositId: number
   amount: number
   date: Date
