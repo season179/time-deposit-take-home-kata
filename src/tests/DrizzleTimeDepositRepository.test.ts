@@ -115,9 +115,9 @@ describe('DrizzleTimeDepositRepository', () => {
       const deposit3 = await repository.create({ planType: 'premium', days: 60, balance: 3000 })
 
       await repository.updateBalances([
-        { id: deposit1.id, balance: 1100 },
-        { id: deposit2.id, balance: 2200 },
-        { id: deposit3.id, balance: 3300 },
+        { id: deposit1.id, balance: 1100, days: 45 },
+        { id: deposit2.id, balance: 2200, days: 100 },
+        { id: deposit3.id, balance: 3300, days: 60 },
       ])
 
       const deposits = await repository.findAll()

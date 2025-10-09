@@ -39,10 +39,11 @@ export class UpdateAllTimeDepositBalances {
     // 3. Update balances using the existing calculator (preserves existing behavior)
     this.calculator.updateBalance(timeDeposits)
 
-    // 4. Prepare updates for persistence
+    // 4. Prepare updates for persistence (including computed days)
     const updates = timeDeposits.map((td) => ({
       id: td.id,
       balance: td.balance,
+      days: td.days,
     }))
 
     // 5. Persist updates to database

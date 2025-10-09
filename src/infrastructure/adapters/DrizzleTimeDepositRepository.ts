@@ -95,13 +95,14 @@ export class DrizzleTimeDepositRepository implements TimeDepositRepository {
     await this.db.update(timeDeposits).set({ balance: newBalance }).where(eq(timeDeposits.id, id))
   }
 
-  async updateBalances(updates: { id: number; balance: number }[]): Promise<void> {
+  async updateBalances(updates: { id: number; balance: number; days: number }[]): Promise<void> {
     // Perform bulk updates in a transaction for atomicity
+    // Update both balance and days to keep stored values synchronized
     await this.db.transaction(async (tx) => {
       for (const update of updates) {
         await tx
           .update(timeDeposits)
-          .set({ balance: update.balance })
+          .set({ balance: update.balance, days: update.days })
           .where(eq(timeDeposits.id, update.id))
       }
     })

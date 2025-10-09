@@ -35,7 +35,7 @@ export interface TimeDepositRepository {
   /**
    * Update balances for multiple time deposits (bulk operation)
    */
-  updateBalances(updates: { id: number; balance: number }[]): Promise<void>
+  updateBalances(updates: { id: number; balance: number; days: number }[]): Promise<void>
 
   /**
    * Add a withdrawal record
