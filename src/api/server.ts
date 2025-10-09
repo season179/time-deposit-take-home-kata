@@ -34,12 +34,6 @@ export async function createServer() {
         description: 'RESTful API for managing time deposit accounts and calculating interest',
         version: '1.0.0',
       },
-      servers: [
-        {
-          url: 'http://localhost:3000',
-          description: 'Development server',
-        },
-      ],
       tags: [
         {
           name: 'Time Deposits',

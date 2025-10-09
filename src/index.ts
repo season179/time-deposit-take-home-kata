@@ -34,20 +34,26 @@ async function bootstrap() {
       updateAllTimeDepositBalances,
     })
 
-    // Start server
-    const port = Number(process.env.PORT) || 3000
+    // Start server with automatic port fallback
+    const preferredPort = Number(process.env.PORT) || 3000
     const host = process.env.HOST || '0.0.0.0'
+    let actualPort = preferredPort
 
-    await server.listen({ port, host })
+    try {
+      await server.listen({ port: preferredPort, host })
+    } catch (error: any) {
+      // If preferred port is in use, try any available port
+      if (error.code === 'EADDRINUSE') {
+        console.log(`Port ${preferredPort} is in use, finding an available port...`)
+        await server.listen({ port: 0, host })
+        actualPort = (server.server.address() as any).port
+      } else {
+        throw error
+      }
+    }
 
-    console.log(`
-╔═══════════════════════════════════════════════════╗
-║  🏦 XA Bank Time Deposit API                      ║
-╠═══════════════════════════════════════════════════╣
-║  Server running at: http://localhost:${port}       ║
-║  Swagger UI: http://localhost:${port}/docs         ║
-╚═══════════════════════════════════════════════════╝
-    `)
+    console.log(`Server running at: http://localhost:${actualPort}`);
+    console.log(`Swagger UI: http://localhost:${actualPort}/docs`);
   } catch (error) {
     console.error('Failed to start server:', error)
     process.exit(1)

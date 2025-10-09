@@ -98,7 +98,7 @@ bun run db:seed
 bun start
 ```
 
-The server will start on `http://localhost:3000`
+The server will start on `http://localhost:3000` by default. If port 3000 is already in use, it will automatically find and use an available port, displaying the actual port in the startup message.
 
 ## API Endpoints
 
@@ -154,7 +154,6 @@ The balance field is stored but updated atomically with withdrawals, while days 
 ```bash
 bun run db:migrate    # Run migrations
 bun run db:seed       # Load sample data
-bun run db:studio     # Open database GUI
 ```
 
 ---
